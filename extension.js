@@ -203,7 +203,25 @@ Manager.prototype = {
 		let tracker = Shell.WindowTracker.get_default();
 		tracker.connect('notify::focus-app', Lang.bind(this, this._focusChanged));
 
+		global.screen.connect('notify::n-workspaces', Lang.bind(this, this._changeWorkspaces));
+
 		this._windows = [];
+
+		this._changeWorkspaces();
+	},
+
+	_changeWorkspaces: function() {
+		for (let i = 0;i < global.screen.n_workspaces; ++i) {
+			let ws = global.screen.get_workspace_by_index(i);
+
+			if (ws._windowAddedId) {
+				ws.disconnect(ws._windowAddedId);
+				ws.disconnect(ws._windowRemovedId);
+			}
+
+			ws._windowAddedId = ws.connect('window-added', Lang.bind(this, this._windowAdded));
+			ws._windowRemovedId = ws.connect('window-removed', Lang.bind(this, this._windowRemoved));
+		}
 	},
 
 	_windowAdded: function(metaWorkspace, metaWindow) {
@@ -243,6 +261,10 @@ Manager.prototype = {
 	},
 
 	_removeSelectedWindow: function(win) {
+		let windowIndex = _windows.indexOf(win);
+		if (windowIndex != -1) {
+			_windows.splice(windowIndex, 1);
+		}
 		win.delete(global.get_current_time());
 	},
 
