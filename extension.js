@@ -202,6 +202,7 @@ Switcher.prototype = {
 		let keysym = event.get_key_symbol();
 		let event_state = Shell.get_event_state(event);
 
+		let backwards = event_state & Clutter.ModifierType.SHIFT_MASK;
 		let action = global.display.get_keybinding_action(event.get_key_code(), event_state);
 
 		if (keysym == Clutter.Escape) {
@@ -211,7 +212,7 @@ Switcher.prototype = {
 			this.destroy();
 		} else if (action == Meta.KeyBindingAction.SWITCH_GROUP ||
 				   action == Meta.KeyBindingAction.SWITCH_WINDOWS) {
-			this._next();
+			backwards ? this._previous() : this._next();
 		} else if (action == Meta.KeyBindingAction.SWITCH_GROUP_BACKWORD ||
 				   action == Meta.KeyBindingAction.SWITCH_WINDOWS_BACKWORD) {
 			this._previous();
