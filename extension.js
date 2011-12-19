@@ -19,7 +19,6 @@ function Switcher(list, thumbnails, actions) {
 
 Switcher.prototype = {
 	_init: function(list, thumbnails, actions) {
-		global.log('list = ' + list);
 		this.actor = new Shell.GenericContainer({
 			name: 'altTabInvisiblePopup',
 			reactive: true,
@@ -167,13 +166,8 @@ Switcher.prototype = {
 	},
 
 	_activateSelected: function() {
-		try {
-			this._actions['activate_selected'](this._list[this._currentIndex]);
-		} catch (err) {
-			global.log('exception in _activateSelected().');
-		} finally {
-			this.destroy();
-		}
+		this._actions['activate_selected'](this._list[this._currentIndex]);
+		this.destroy();
 	},
 
 	_onDestroy: function() {
@@ -220,14 +214,12 @@ Manager.prototype = {
 
 	_windowRemoved: function(metaWorkspace, metaWindow) {
 		let windowIndex = this._windows.indexOf(metaWindow);
-
 		if (windowIndex != -1) {
 			this._windows.splice(windowIndex, 1);
 		}
 	},
 
 	_initWindowList: function() {
-		global.log('>>> _initWindowList enter');
 		this._windows = [];
 
 		let windowActors = global.get_window_actors();
@@ -244,23 +236,17 @@ Manager.prototype = {
 				return (win1.get_user_time() > win2.get_user_time()) ? 1 : -1 ;
 			}
 		);
-		global.log('<<< _initWindowList exit');
 	},
 
 	_activateSelectedWindow: function(win) {
-		global.log('>>> _activateSelectedWindow() enter');
 		Main.activateWindow(win);
-		global.log('<<< _activateSelectedWindow() exit');
 	},
 
 	_removeSelectedWindow: function(win) {
-		global.log('>>> _removeSelectedWindow() enter');
 		win.delete(global.get_current_time());
-		global.log('<<< _removeSelectedWindow() exit');
 	},
 
 	_focusChanged: function() {
-		global.log('>>> _focusChanged() enter');
 		if (!this._windows.length) {
 			this._initWindowList();
 		}
@@ -278,12 +264,9 @@ Manager.prototype = {
 			// stack the window
 			this._windows.unshift(focusedWindow);
 		}
-		global.log('>>> _focusChanged() exit');
 	},
 
 	_startWindowSwitcher: function (shellwm, binding, mask, window, backwords) {
-		global.log('>>> _startWindowSwitcher() enter');
-
 		let list = null;
 		let thumbnails = null;
 		let actions = {};
@@ -313,7 +296,6 @@ Manager.prototype = {
 		}
 
 		if (list.length) {
-			global.log('list = ' + list);
 			let switcher = new Switcher(list, thumbnails, actions);
 			switcher._currentIndex = currentIndex;
 
@@ -321,8 +303,6 @@ Manager.prototype = {
 				switcher.destroy();
 			}
 		}
-
-		global.log('<<< _startWindowSwitcher() exit');
 	},
 }
 
@@ -333,7 +313,6 @@ function init() {
 }
 
 function enable() {
-	global.log('>>> CoverflowAltTab::enable() enter');
     if (!manager) {
         manager = new Manager();
     }
@@ -342,11 +321,9 @@ function enable() {
     Main.wm.setKeybindingHandler('switch_group', Lang.bind(manager, manager._startWindowSwitcher));
     Main.wm.setKeybindingHandler('switch_windows_backward', Lang.bind(manager, manager._startWindowSwitcher));
     Main.wm.setKeybindingHandler('switch_group_backward', Lang.bind(manager, manager._startWindowSwitcher));
-	global.log('<<< coverflowalttab::enable() exit');
 }
 
 function disable() {
-	global.log('>>> CoverflowAltTab::disable() enter');
 	if (manager) {
 		manager = null;
 	}
@@ -355,5 +332,4 @@ function disable() {
     Main.wm.setKeybindingHandler('switch_group', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
     Main.wm.setKeybindingHandler('switch_windows_backward', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
     Main.wm.setKeybindingHandler('switch_group_backward', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
-	global.log('<<< coverflowalttab::disable() exit');
 }
