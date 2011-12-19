@@ -11,7 +11,63 @@ const Main = imports.ui.main;
 const Tweener = imports.ui.tweener;
 
 /**
- *
+ * A preview for the selected window.
+ */
+function WindowPreview(win, switcher) {
+	this._init(win, switcher);
+}
+
+WindowPreview.prototype = {
+	_init: function(win, switcher) {
+		this._switcher = switcher;
+
+		this.actor = new St.Bin();
+		this.actor.opacity = 0;
+
+		let compositor = win.get_compositor_private();
+		if (compositor) {
+			let texture = compositor.get_texture();
+			let [width, height] = texture.get_size();
+
+			let clone = new Clutter.Clone({
+				source: texture,
+				reactive: false,
+				width: width * 0.85,
+				height: height * 0.85
+			});
+			this.actor.set_child(clone);
+		}
+	},
+
+	show: function() {
+		Main.uiGroup.add_actor(this.actor);
+		this._switcher.actor.raise_top();
+
+		let monitor = Main.layoutManager.primaryMonitor;
+		this.actor.set_position(
+			monitor.width / 2 - this.actor.width / 2,
+			monitor.height / 2 - this.actor.height / 2
+		);
+
+		Tweener.addTween(this.actor, {
+			opacity: 255,
+			time: 0.25,
+			transition: 'easeOutQuad'
+		});
+	},
+
+	hide: function() {
+		Tweener.addTween(this.actor, {
+			opacity: 0,
+			time: 0.25,
+			transition: 'easeOutQuad',
+			onComplete: Lang.bind(Main.uiGroup, Main.uiGroup.remove_actor, this.actor)
+		});
+	},
+}
+
+/**
+ * The switcher
  */
 function Switcher(list, thumbnails, actions) {
 	this._init(list, thumbnails, actions);
@@ -33,10 +89,10 @@ Switcher.prototype = {
 		this._list = list;
 		this._thumbnails = thumbnails;
 		this._modifierMask = null;
-		this._initialDelayTimeoutId = 0;
 		this._currentIndex = 0;
 		this._actions = actions;
 		this._haveModal = false;
+		this._preview = null;
 
 		Main.uiGroup.add_actor(this.actor);
 	},
@@ -66,7 +122,7 @@ Switcher.prototype = {
 			let [childMinWidth, childNaturalWidth] = this._thumbnails.actor.get_preferred_width(childNaturalHeight);
 			childBox.x1 = Math.max(primary.x + leftPadding, primary.x + Math.floor((primary.width - childNaturalWidth) / 2));
 			childBox.x2 = Math.min(primary.x + primary.width - rightPadding, childBox.x1 + childNaturalWidth);
-			childBox.y1 = primary.y + Math.floor((primary.height - childNaturalHeight) / 2);
+			childBox.y1 = primary.y + primary.height - childNaturalHeight - Math.max(20, bottomPadding + vPadding);
 			this._thumbnails.addClones(primary.height);
 			childBox.y2 = childBox.y1 + childNaturalHeight;
 			this._thumbnails.actor.allocate(childBox, flags);
@@ -94,6 +150,7 @@ Switcher.prototype = {
 		this.actor.get_allocation_box();
 
 		this._next();
+		this._createPreview();
 
 		// There's a race condition; if the user released Alt before
 		// we gotthe grab, then we won't be notified. (See
@@ -107,17 +164,11 @@ Switcher.prototype = {
 			return false;
 		}
 
-		// We delay showing the popup so that fast Alt-Tab users arn't
-		// disturbed by the popup briefly flashing.
-		this._initialDelayTimeoutId = Mainloop.timeout_add(
-			AltTab.POPUP_DELAY_TIMEOUT,
-			Lang.bind(this,
-				function() {
-					this.actor.opacity = 255;
-					this._initialDelayTimeoutId = 0;
-				}
-			)
-		);
+		Tweener.addTween(this.actor, {
+			opacity: 255,
+			time: 0.25,
+			transition: 'easeOutQuad'
+		});
 
 		return true;
 	},
@@ -130,6 +181,21 @@ Switcher.prototype = {
 	_previous: function() {
 		this._currentIndex = (this._currentIndex + this._list.length - 1) % this._list.length;
 		this._thumbnails.highlight(this._currentIndex, true);
+	},
+
+	_createPreview: function() {
+		if (this._preview) {
+			this._preview.hide();
+		}
+		this._preview = new WindowPreview(this._list[this._currentIndex], this);
+		this._preview.show();
+	},
+
+	_removePreview: function() {
+		if (this._preview) {
+			this._preview.hide();
+			this._preview = null;
+		}
 	},
 
 	_keyPressEvent: function(actor, event) {
@@ -151,6 +217,10 @@ Switcher.prototype = {
 			this._previous();
 		}
 
+		// remove old preview then create a new one.
+		this._removePreview();
+		this._createPreview();
+
 		return true;
 	},
 
@@ -166,11 +236,22 @@ Switcher.prototype = {
 	},
 
 	_activateSelected: function() {
+		global.log(this._currentIndex);
 		this._actions['activate_selected'](this._list[this._currentIndex]);
 		this.destroy();
 	},
 
 	_onDestroy: function() {
+		this._removePreview();
+
+		Tweener.removeTweens(this.actor);
+		Tweener.addTween(this.actor, {
+			opacity: 0,
+			time: 0.25,
+			transition: 'easeOutQuad',
+			onComplete: Lang.bind(Main.uiGroup, Main.uiGroup.remove_actor, this.actor)
+		});
+
 		if (this._haveModal) {
 			Main.popModal(this.actor);
 			this._haveModal = false;
@@ -178,15 +259,10 @@ Switcher.prototype = {
 
 		this._list = null;
 		this._thumbnails = null;
-
-		if (this._initialDelayTimeoutId != 0) {
-			Mainloop.source_remove(this._initialDelayTimeoutId);
-		}
 	},
 
 	destroy: function() {
 		this._onDestroy();
-		this.actor.destroy();
 	},
 }
 
@@ -223,7 +299,7 @@ Manager.prototype = {
 			windows.push(windowActors[i].get_meta_window());
 		}
 		windowActors = null;
-		if (binding != 'switch_windows') {
+		if (binding == 'switch_group') {
 			windows = windows.filter(
 				function(win) {
 					return win.get_workspace() == currentWorkspace && !win.is_skip_taskbar();
