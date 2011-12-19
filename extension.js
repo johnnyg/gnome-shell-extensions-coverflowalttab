@@ -200,60 +200,6 @@ function Manager() {
 
 Manager.prototype = {
 	_init: function() {
-		let tracker = Shell.WindowTracker.get_default();
-		tracker.connect('notify::focus-app', Lang.bind(this, this._focusChanged));
-
-		global.screen.connect('notify::n-workspaces', Lang.bind(this, this._changeWorkspaces));
-
-		this._windows = [];
-
-		this._changeWorkspaces();
-	},
-
-	_changeWorkspaces: function() {
-		for (let i = 0;i < global.screen.n_workspaces; ++i) {
-			let ws = global.screen.get_workspace_by_index(i);
-
-			if (ws._windowAddedId) {
-				ws.disconnect(ws._windowAddedId);
-				ws.disconnect(ws._windowRemovedId);
-			}
-
-			ws._windowAddedId = ws.connect('window-added', Lang.bind(this, this._windowAdded));
-			ws._windowRemovedId = ws.connect('window-removed', Lang.bind(this, this._windowRemoved));
-		}
-	},
-
-	_windowAdded: function(metaWorkspace, metaWindow) {
-		if (this._windows.indexOf(metaWindow) == -1) {
-			this._windows.splice(1, 0, metaWindow);
-		}
-	},
-
-	_windowRemoved: function(metaWorkspace, metaWindow) {
-		let windowIndex = this._windows.indexOf(metaWindow);
-		if (windowIndex != -1) {
-			this._windows.splice(windowIndex, 1);
-		}
-	},
-
-	_initWindowList: function() {
-		this._windows = [];
-
-		let windowActors = global.get_window_actors();
-
-		for (let i in windowActors) {
-			let win = windowActors[i].get_meta_window();
-
-			this._windows.push(win);
-		}
-
-		// Sort windows by user time
-		this._windows.sort(
-			function(win1, win2) {
-				return (win1.get_user_time() > win2.get_user_time()) ? 1 : -1 ;
-			}
-		);
 	},
 
 	_activateSelectedWindow: function(win) {
@@ -261,51 +207,40 @@ Manager.prototype = {
 	},
 
 	_removeSelectedWindow: function(win) {
-		let windowIndex = _windows.indexOf(win);
-		if (windowIndex != -1) {
-			_windows.splice(windowIndex, 1);
-		}
 		win.delete(global.get_current_time());
 	},
 
-	_focusChanged: function() {
-		if (!this._windows.length) {
-			this._initWindowList();
-		}
-
-		let focusedWindow = global.display.focus_window;
-
-		if (focusedWindow) {
-			let windowIndex = this._windows.indexOf(focusedWindow);
-
-			if (windowIndex != -1) {
-				// remove the window from the list first
-				this._windows.splice(windowIndex, 1);
-			}
-
-			// stack the window
-			this._windows.unshift(focusedWindow);
-		}
-	},
-
 	_startWindowSwitcher: function (shellwm, binding, mask, window, backwords) {
-		let list = null;
+		let windows = [];
 		let thumbnails = null;
 		let actions = {};
 		let currentWorkspace = global.screen.get_active_workspace();
 		let currentIndex = 0;
 
-		if (binding == 'switch_windows') {
-			list = this._windows;
-		} else {
-			list = this._windows.filter(
+		// construct a list with all windows
+		let windowActors = global.get_window_actors();
+		for (let i in windowActors) {
+			windows.push(windowActors[i].get_meta_window());
+		}
+		windowActors = null;
+		if (binding != 'switch_windows') {
+			windows = windows.filter(
 				function(win) {
 					return win.get_workspace() == currentWorkspace && !win.is_skip_taskbar();
 				}
 			);
 		}
+		windows.sort(Lang.bind(this,
+			function(win1, win2) {
+				let t1 = win1.get_user_time();
+				let t2 = win2.get_user_time();
 
-		thumbnails = new AltTab.ThumbnailList(list);
+				return (t2 > t1) ? 1 : -1 ;
+			}
+		));
+
+		// generate thumbnails
+		thumbnails = new AltTab.ThumbnailList(windows);
 		if (thumbnails._separator) {
 			thumbnails._list.remove_actor(thumbnails._separator);
 			thumbnails._separator = null;
@@ -317,8 +252,8 @@ Manager.prototype = {
 			currentIndex = -1;
 		}
 
-		if (list.length) {
-			let switcher = new Switcher(list, thumbnails, actions);
+		if (windows.length) {
+			let switcher = new Switcher(windows, thumbnails, actions);
 			switcher._currentIndex = currentIndex;
 
 			if (!switcher.show(shellwm, binding, mask, window, backwords)) {
