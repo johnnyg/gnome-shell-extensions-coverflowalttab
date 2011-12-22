@@ -2,6 +2,6 @@
 	"shell-version": ["3.2.1"],
 	"uuid": "CoverflowAltTab@palatis.blogspot.com",
 	"name": "Coverflow Alt-Tab",
-	"description": "Replace Alt-Tab behavior, iterates through widowns from current workspace or all workspaces.",
+	"description": "Replacement of Alt-Tab, iterates through windows in a cover-flow manner.",
 	"url": "http://code.google.com/p/gnome-shell-extensions-coverflowalttab/"
 }

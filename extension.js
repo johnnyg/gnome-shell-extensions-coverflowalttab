@@ -211,7 +211,8 @@ Switcher.prototype = {
 			this._actions['remove_selected'](this._list[this._currentIndex]);
 			this.destroy();
 		} else if (action == Meta.KeyBindingAction.SWITCH_GROUP ||
-				   action == Meta.KeyBindingAction.SWITCH_WINDOWS) {
+				   action == Meta.KeyBindingAction.SWITCH_WINDOWS ||
+				   action == Meta.KeyBindingAction.SWITCH_PANELS) {
 			backwards ? this._previous() : this._next();
 		} else if (action == Meta.KeyBindingAction.SWITCH_GROUP_BACKWORD ||
 				   action == Meta.KeyBindingAction.SWITCH_WINDOWS_BACKWORD) {
@@ -300,13 +301,6 @@ Manager.prototype = {
 			windows.push(windowActors[i].get_meta_window());
 		}
 		windowActors = null;
-		if (binding == 'switch_group') {
-			windows = windows.filter(
-				function(win) {
-					return win.get_workspace() == currentWorkspace && !win.is_skip_taskbar();
-				}
-			);
-		}
 		windows.sort(Lang.bind(this,
 			function(win1, win2) {
 				let t1 = win1.get_user_time();
@@ -315,6 +309,26 @@ Manager.prototype = {
 				return (t2 > t1) ? 1 : -1 ;
 			}
 		));
+
+		// filter by modes
+		if (binding == 'switch_group') {
+			windows = windows.filter(
+				function(win) {
+					return win.get_workspace() == currentWorkspace && !win.is_skip_taskbar();
+				}
+			);
+		} else if (binding == 'switch_panels') {
+			let focused = global.display.focus_window;
+			if (!focused)
+				focused = windows[0];
+
+			windows = windows.filter(
+				function(win) {
+					return win.get_wm_class() == focused.get_wm_class() && !win.is_skip_taskbar();
+				}
+			);
+		}
+		// else { // does nothing }
 
 		// generate thumbnails
 		thumbnails = new AltTab.ThumbnailList(windows);
@@ -353,6 +367,7 @@ function enable() {
 
     Main.wm.setKeybindingHandler('switch_windows', Lang.bind(manager, manager._startWindowSwitcher));
     Main.wm.setKeybindingHandler('switch_group', Lang.bind(manager, manager._startWindowSwitcher));
+    Main.wm.setKeybindingHandler('switch_panels', Lang.bind(manager, manager._startWindowSwitcher));
     Main.wm.setKeybindingHandler('switch_windows_backward', Lang.bind(manager, manager._startWindowSwitcher));
     Main.wm.setKeybindingHandler('switch_group_backward', Lang.bind(manager, manager._startWindowSwitcher));
 }
@@ -364,6 +379,7 @@ function disable() {
 
     Main.wm.setKeybindingHandler('switch_windows', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
     Main.wm.setKeybindingHandler('switch_group', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
+    Main.wm.setKeybindingHandler('switch_panels', Lang.bind(Main.wm, Main.wm._startA11ySwitcher));
     Main.wm.setKeybindingHandler('switch_windows_backward', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
     Main.wm.setKeybindingHandler('switch_group_backward', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
 }
