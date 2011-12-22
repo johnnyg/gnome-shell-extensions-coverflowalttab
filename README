@@ -1,0 +1,29 @@
+=== Installation ===
+
+Install from
+"https://extensions.gnome.org/extension/97/coverflow-alt-tab/",
+or just put this directory under
+"~/.local/share/gnome-shell/extensions/CoverflowAltTab@palatis.blogspot.com"
+
+=== Usage ===
+
+there are several "Switch xxx" under "Settings => Keyboard => Shortcuts =>
+Navigation", this extensions replace a few of them:
+  - Switch applications: cycle through windows from all workspaces
+  - Switch windows of an application: cycle through windows from current
+    workspace
+  - Switch system controls: cycle through windows from the same application
+    across all workspaces
+all of the shortcuts with "Shift" key pressed cycles backward.
+
+Hit "Esc" during cycling to cancel.
+Hit "q"  during cycling to close highlighted window.
+
+=== Apology ===
+
+Although this extensions is with the name "COVERFLOW Alt-Tab", but it actually
+doesn't do coverflow at present...
+
+That's a work-in-progress, I'm sorry if your're disappointed.
+
+at least the window preview works......
