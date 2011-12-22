@@ -10,132 +10,75 @@ const AltTab = imports.ui.altTab;
 const Main = imports.ui.main;
 const Tweener = imports.ui.tweener;
 
-/**
- * A preview for the selected window.
- */
-const WINDOWPREVIEW_SCALE = 0.666666;
-
-function WindowPreview(win, switcher) {
-	this._init(win, switcher);
-}
-
-WindowPreview.prototype = {
-	_init: function(win, switcher) {
-		this._switcher = switcher;
-
-		this.actor = new St.Bin();
-		this.actor.opacity = 0;
-
-		let compositor = win.get_compositor_private();
-		if (compositor) {
-			let texture = compositor.get_texture();
-			let [width, height] = texture.get_size();
-
-			let monitor = Main.layoutManager.primaryMonitor;
-			let scale = 1.0;
-			if (width > monitor.width * WINDOWPREVIEW_SCALE ||
-				height > monitor.height * WINDOWPREVIEW_SCALE) {
-				scale = WINDOWPREVIEW_SCALE;
-			}
-
-			let clone = new Clutter.Clone({
-				source: texture,
-				reactive: false,
-				width: width * scale,
-				height: height * scale,
-			});
-			this.actor.set_child(clone);
-		}
-	},
-
-	show: function() {
-		Main.uiGroup.add_actor(this.actor);
-		this._switcher.actor.raise_top();
-
-		let monitor = Main.layoutManager.primaryMonitor;
-		this.actor.set_position(
-			monitor.width / 2 - this.actor.width / 2,
-			monitor.height / 2 - this.actor.height / 2
-		);
-
-		Tweener.addTween(this.actor, {
-			opacity: 255,
-			time: 0.25,
-			transition: 'easeOutQuad'
-		});
-	},
-
-	hide: function() {
-		Tweener.addTween(this.actor, {
-			opacity: 0,
-			time: 0.25,
-			transition: 'easeOutQuad',
-			onComplete: Lang.bind(Main.uiGroup, Main.uiGroup.remove_actor, this.actor)
-		});
-	},
-}
+let level = 0;
 
 /**
  * The switcher
  */
-function Switcher(list, thumbnails, actions) {
-	this._init(list, thumbnails, actions);
+let WINDOWPREVIEW_SCALE = 0.5;
+
+function Switcher(windows, actions) {
+	this._init(windows, actions);
 }
 
 Switcher.prototype = {
-	_init: function(list, thumbnails, actions) {
-		this.actor = new Shell.GenericContainer({
-			name: 'altTabInvisiblePopup',
-			reactive: true,
-			visible: false,
-		});
-
-		this.actor.connect('get-preferred-width', Lang.bind(this, this._getPreferredWidth));
-		this.actor.connect('get-preferred-height', Lang.bind(this, this._getPreferredHeight));
-		this.actor.connect('allocate', Lang.bind(this, this._allocate));
-		this.actor.connect('destroy', Lang.bind(this, this._onDestroy));
-
-		this._list = list;
-		this._thumbnails = thumbnails;
+	_init: function(windows, actions) {
+		this._windows = windows;
+		this._windowTitle = null;
 		this._modifierMask = null;
 		this._currentIndex = 0;
 		this._actions = actions;
 		this._haveModal = false;
-		this._preview = null;
+
+		let monitor = Main.layoutManager.primaryMonitor;
+		this.actor = new St.Group({
+			style_class: 'coverflow-switcher',
+			visible: true,
+			x: 0,
+			y: 0,
+			width: monitor.width,
+			height: monitor.height,
+		});
+
+		this.actor.add_actor(new St.Bin({
+			style_class: 'coverflow-switcher-gradient',
+			visible: true,
+			x: 0,
+			y: monitor.height / 2,
+			width: monitor.width,
+			height: monitor.height / 2,
+		}));
+
+		// create previews
+		this._previews = [];
+		for (let i in windows) {
+			let compositor = windows[i].get_compositor_private();
+			if (compositor) {
+				let texture = compositor = compositor.get_texture();
+				let [width, height] = texture.get_size();
+
+				let scale = 1.0;
+				if (width > monitor.width * WINDOWPREVIEW_SCALE ||
+					height > monitor.height * WINDOWPREVIEW_SCALE) {
+					scale = Math.min(monitor.width * WINDOWPREVIEW_SCALE / width, monitor.height * WINDOWPREVIEW_SCALE / height);
+				}
+
+				let clone = new Clutter.Clone({
+					source: texture,
+					reactive: false,
+					rotation_center_y: new Clutter.Vertex({ x: width * scale / 2, y: 0.0, z: 0.0 }),
+					width: width * scale,
+					height: height * scale,
+					x: (monitor.width - (width * scale)) / 2,
+					y: (monitor.height - (height * scale)) / 2,
+				});
+
+				this._previews.push(clone);
+				this.actor.add_actor(clone);
+			}
+		}
 
 		Main.uiGroup.add_actor(this.actor);
-	},
-
-	_getPreferredWidth: function(actor, forHeight, alloc) {
-		alloc.min_size = global.screen_width;
-		alloc.natural_size = global.screen_width;
-	},
-
-	_getPreferredHeight: function(actor, forWidth, alloc) {
-		alloc.min_size = global.screen_height;
-		alloc.natural_size = global.screen_height;
-	},
-
-	_allocate: function(actor, box, flags) {
-		if (this._thumbnails) {
-			let childBox = new Clutter.ActorBox();
-			let primary = Main.layoutManager.primaryMonitor;
-
-			let leftPadding = this.actor.get_theme_node().get_padding(St.Side.LEFT);
-			let rightPadding = this.actor.get_theme_node().get_padding(St.Side.RIGHT);
-			let bottomPadding = this.actor.get_theme_node().get_padding(St.Side.BOTTOM);
-			let vPadding = this.actor.get_theme_node().get_vertical_padding();
-			let hPadding = leftPadding + rightPadding;
-
-			let [childMinHeight, childNaturalHeight] = this._thumbnails.actor.get_preferred_height(primary.width - hPadding);
-			let [childMinWidth, childNaturalWidth] = this._thumbnails.actor.get_preferred_width(childNaturalHeight);
-			childBox.x1 = Math.max(primary.x + leftPadding, primary.x + Math.floor((primary.width - childNaturalWidth) / 2));
-			childBox.x2 = Math.min(primary.x + primary.width - rightPadding, childBox.x1 + childNaturalWidth);
-			childBox.y1 = primary.y + primary.height - childNaturalHeight - Math.max(20, bottomPadding + vPadding);
-			this._thumbnails.addClones(primary.height);
-			childBox.y2 = childBox.y1 + childNaturalHeight;
-			this._thumbnails.actor.allocate(childBox, flags);
-		}
 	},
 
 	show: function(shellwm, binding, mask, window, backwords) {
@@ -149,17 +92,10 @@ Switcher.prototype = {
 		this.actor.connect('key-press-event', Lang.bind(this, this._keyPressEvent));
 		this.actor.connect('key-release-event', Lang.bind(this, this._keyReleaseEvent));
 
-		this.actor.add_actor(this._thumbnails.actor);
-		this._thumbnails.actor.get_allocation_box();
-
-		// need to force an allocation so we can figure out whether we
-		// need to scroll when selecting
 		this.actor.opacity = 0;
 		this.actor.show();
-		this.actor.get_allocation_box();
 
 		this._next();
-		this._createPreview();
 
 		// There's a race condition; if the user released Alt before
 		// we gotthe grab, then we won't be notified. (See
@@ -169,7 +105,6 @@ Switcher.prototype = {
 		let [x, y, mods] = global.get_pointer();
 		if (!(mods & this._modifierMask)) {
 			this._activateSelected();
-
 			return false;
 		}
 
@@ -183,27 +118,76 @@ Switcher.prototype = {
 	},
 
 	_next: function() {
-		this._currentIndex = (this._currentIndex + 1) % this._list.length;
-		this._thumbnails.highlight(this._currentIndex, true);
+		this._currentIndex = (this._currentIndex + 1) % this._windows.length;
+		this._updateCoverflow();
 	},
 
 	_previous: function() {
-		this._currentIndex = (this._currentIndex + this._list.length - 1) % this._list.length;
-		this._thumbnails.highlight(this._currentIndex, true);
+		this._currentIndex = (this._currentIndex + this._windows.length - 1) % this._windows.length;
+		this._updateCoverflow();
 	},
 
-	_createPreview: function() {
-		if (this._preview) {
-			this._preview.hide();
+	_updateCoverflow: function() {
+		let monitor = Main.layoutManager.primaryMonitor;
+
+		// window title label
+		if (this._windowTitle) {
+			Tweener.addTween(this._windowTitle, {
+				opacity: 0,
+				time: 0.25,
+				transition: 'easeOutQuad',
+				onComplete: Lang.bind(this.actor, this.actor.remove_actor, this._windowTitle),
+			});
 		}
-		this._preview = new WindowPreview(this._list[this._currentIndex], this);
-		this._preview.show();
-	},
 
-	_removePreview: function() {
-		if (this._preview) {
-			this._preview.hide();
-			this._preview = null;
+		this._windowTitle = new St.Label({
+			style_class: 'modal-dialog',
+			text: this._windows[this._currentIndex].get_title(),
+			opacity: 0,
+		});
+		this._windowTitle.add_style_class_name('run-dialog');
+		this._windowTitle.add_style_class_name('coverflow-window-title-label');
+		this.actor.add_actor(this._windowTitle);
+		this._windowTitle.x = (monitor.width - this._windowTitle.width) / 2;
+		this._windowTitle.y = monitor.height - this._windowTitle.height - 20;
+		Tweener.addTween(this._windowTitle, {
+			opacity: 255,
+			time: 0.25,
+			transition: 'easeOutQuad',
+		});
+
+		// preview windows
+		for (let i in this._previews) {
+			let preview = this._previews[i];
+			let [width, height] = preview.get_size();
+
+			if (i == this._currentIndex) {
+				preview.raise_top();
+
+				Tweener.addTween(preview, {
+					x: (monitor.width - width) / 2,
+					y: (monitor.height - height) / 2,
+					rotation_angle_y: 0.0,
+					time: 0.25,
+					transition: 'easeOutQuad',
+				});
+			} else if (i < this._currentIndex) {
+				Tweener.addTween(preview, {
+					x: monitor.width * 0.20 - width / 2 + 25 * (i - this._currentIndex),
+					y: (monitor.height - height) / 2,
+					rotation_angle_y: 60.0,
+					time: 0.25,
+					transition: 'easeOutQuad',
+				});
+			} else if (i > this._currentIndex) {
+				Tweener.addTween(preview, {
+					x: monitor.width * 0.80 - width / 2 + 25 * (i - this._currentIndex),
+					y: (monitor.height - height) / 2,
+					rotation_angle_y: -60.0,
+					time: 0.25,
+					transition: 'easeOutQuad',
+				});
+			}
 		}
 	},
 
@@ -217,7 +201,7 @@ Switcher.prototype = {
 		if (keysym == Clutter.Escape) {
 			this.destroy();
 		} else if (keysym == Clutter.q || keysym == Clutter.Q) {
-			this._actions['remove_selected'](this._list[this._currentIndex]);
+			this._actions['remove_selected'](this._windows[this._currentIndex]);
 			this.destroy();
 		} else if (action == Meta.KeyBindingAction.SWITCH_GROUP ||
 				   action == Meta.KeyBindingAction.SWITCH_WINDOWS ||
@@ -227,10 +211,6 @@ Switcher.prototype = {
 				   action == Meta.KeyBindingAction.SWITCH_WINDOWS_BACKWORD) {
 			this._previous();
 		}
-
-		// remove old preview then create a new one.
-		this._removePreview();
-		this._createPreview();
 
 		return true;
 	},
@@ -247,13 +227,39 @@ Switcher.prototype = {
 	},
 
 	_activateSelected: function() {
-		global.log(this._currentIndex);
-		this._actions['activate_selected'](this._list[this._currentIndex]);
+		this._actions['activate_selected'](this._windows[this._currentIndex]);
 		this.destroy();
 	},
 
 	_onDestroy: function() {
-		this._removePreview();
+		let monitor = Main.layoutManager.primaryMonitor;
+
+		// preview windows
+		for (let i in this._previews) {
+			let preview = this._previews[i];
+			let [width, height] = preview.get_size();
+
+			Tweener.addTween(preview, {
+				x: (monitor.width - width) / 2,
+				y: (monitor.height - height) / 2,
+				rotation_angle_y: 0.0,
+				time: 0.25,
+				transition: 'easeOutQuad',
+			});
+		}
+		// selected preview window
+		let compositor = this._windows[this._currentIndex].get_compositor_private();
+		if (compositor) {
+			Tweener.removeTweens(this._previews[this._currentIndex]);
+			Tweener.addTween(this._previews[this._currentIndex], {
+				x: compositor.x,
+				y: compositor.y,
+				width: compositor.width,
+				height: compositor.height,
+				time: 0.25,
+				transition: 'easeOutQuad',
+			});
+		}
 
 		Tweener.removeTweens(this.actor);
 		Tweener.addTween(this.actor, {
@@ -268,8 +274,8 @@ Switcher.prototype = {
 			this._haveModal = false;
 		}
 
-		this._list = null;
-		this._thumbnails = null;
+		this._windows = null;
+		this._previews = null;
 	},
 
 	destroy: function() {
@@ -299,7 +305,6 @@ Manager.prototype = {
 
 	_startWindowSwitcher: function (shellwm, binding, mask, window, backwords) {
 		let windows = [];
-		let thumbnails = null;
 		let actions = {};
 		let currentWorkspace = global.screen.get_active_workspace();
 		let currentIndex = 0;
@@ -339,21 +344,15 @@ Manager.prototype = {
 		}
 		// else { // does nothing }
 
-		// generate thumbnails
-		thumbnails = new AltTab.ThumbnailList(windows);
-		if (thumbnails._separator) {
-			thumbnails._list.remove_actor(thumbnails._separator);
-			thumbnails._separator = null;
-		}
-		actions['activate_selected'] = this._activateSelectedWindow;
-		actions['remove_selected'] = this._removeSelectedWindow;
-
-		if (!global.display.focus_window) {
-			currentIndex = -1;
-		}
-
 		if (windows.length) {
-			let switcher = new Switcher(windows, thumbnails, actions);
+			actions['activate_selected'] = this._activateSelectedWindow;
+			actions['remove_selected'] = this._removeSelectedWindow;
+
+			if (!global.display.focus_window) {
+				currentIndex = -1;
+			}
+
+			let switcher = new Switcher(windows, actions);
 			switcher._currentIndex = currentIndex;
 
 			if (!switcher.show(shellwm, binding, mask, window, backwords)) {
