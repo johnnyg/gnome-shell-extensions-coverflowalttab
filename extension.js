@@ -13,6 +13,8 @@ const Tweener = imports.ui.tweener;
 /**
  * A preview for the selected window.
  */
+const WINDOWPREVIEW_SCALE = 0.666666;
+
 function WindowPreview(win, switcher) {
 	this._init(win, switcher);
 }
@@ -29,11 +31,18 @@ WindowPreview.prototype = {
 			let texture = compositor.get_texture();
 			let [width, height] = texture.get_size();
 
+			let monitor = Main.layoutManager.primaryMonitor;
+			let scale = 1.0;
+			if (width > monitor.width * WINDOWPREVIEW_SCALE ||
+				height > monitor.height * WINDOWPREVIEW_SCALE) {
+				scale = WINDOWPREVIEW_SCALE;
+			}
+
 			let clone = new Clutter.Clone({
 				source: texture,
 				reactive: false,
-				width: width * 0.85,
-				height: height * 0.85
+				width: width * scale,
+				height: height * scale,
 			});
 			this.actor.set_child(clone);
 		}
