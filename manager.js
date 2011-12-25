@@ -70,8 +70,13 @@ Manager.prototype = {
 					return win.get_wm_class() == focused.get_wm_class() && !win.is_skip_taskbar();
 				}
 			);
+		} else {
+			windows = windows.filter(
+				function(win) {
+					return !win.is_skip_taskbar();
+				}
+			);
 		}
-		// else { // does nothing }
 
 		if (windows.length) {
 			actions['activate_selected'] = this._activateSelectedWindow;
