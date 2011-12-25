@@ -32,16 +32,19 @@ Switcher.prototype = {
 		this._haveModal = false;
 
 		let monitor = Main.layoutManager.primaryMonitor;
-		this.actor = new St.Group({
+		this.actor = new St.Group({ visible: true });
+
+		// background
+		this._background = new St.Group({
 			style_class: 'coverflow-switcher',
 			visible: true,
 			x: 0,
 			y: 0,
+			opacity: 0,
 			width: monitor.width,
 			height: monitor.height,
 		});
-
-		this.actor.add_actor(new St.Bin({
+		this._background.add_actor(new St.Bin({
 			style_class: 'coverflow-switcher-gradient',
 			visible: true,
 			x: 0,
@@ -49,13 +52,16 @@ Switcher.prototype = {
 			width: monitor.width,
 			height: monitor.height / 2,
 		}));
+		this.actor.add_actor(this._background);
 
 		// create previews
+		let currentWorkspace = global.screen.get_active_workspace();
 		this._previews = [];
 		for (let i in windows) {
+			let metaWin = windows[i];
 			let compositor = windows[i].get_compositor_private();
 			if (compositor) {
-				let texture = compositor = compositor.get_texture();
+				let texture = compositor.get_texture();
 				let [width, height] = texture.get_size();
 
 				let scale = 1.0;
@@ -65,14 +71,16 @@ Switcher.prototype = {
 				}
 
 				let clone = new Clutter.Clone({
+					opacity: (metaWin.get_workspace() == currentWorkspace || metaWin.is_on_all_workspaces()) ? 255 : 0,
 					source: texture,
 					reactive: false,
 					rotation_center_y: new Clutter.Vertex({ x: width * scale / 2, y: 0.0, z: 0.0 }),
-					width: width * scale,
-					height: height * scale,
-					x: (monitor.width - (width * scale)) / 2,
-					y: (monitor.height - (height * scale)) / 2,
+					x: compositor.x,
+					y: compositor.y,
 				});
+
+				clone.target_width = width * scale;
+				clone.target_height = height * scale;
 
 				this._previews.push(clone);
 				this.actor.add_actor(clone);
@@ -92,9 +100,13 @@ Switcher.prototype = {
 
 		this.actor.connect('key-press-event', Lang.bind(this, this._keyPressEvent));
 		this.actor.connect('key-release-event', Lang.bind(this, this._keyReleaseEvent));
-
-		this.actor.opacity = 0;
 		this.actor.show();
+
+		// hide all window actors
+		let windows = global.get_window_actors();
+		for (let i in windows) {
+			windows[i].hide();
+		}
 
 		this._next();
 
@@ -109,7 +121,7 @@ Switcher.prototype = {
 			return false;
 		}
 
-		Tweener.addTween(this.actor, {
+		Tweener.addTween(this._background, {
 			opacity: 255,
 			time: 0.25,
 			transition: 'easeOutQuad'
@@ -160,30 +172,38 @@ Switcher.prototype = {
 		// preview windows
 		for (let i in this._previews) {
 			let preview = this._previews[i];
-			let [width, height] = preview.get_size();
 
 			if (i == this._currentIndex) {
 				preview.raise_top();
 
 				Tweener.addTween(preview, {
-					x: (monitor.width - width) / 2,
-					y: (monitor.height - height) / 2,
+					opacity: 255,
+					x: (monitor.width - preview.target_width) / 2,
+					y: (monitor.height - preview.target_height) / 2,
+					width: preview.target_width,
+					height: preview.target_height,
 					rotation_angle_y: 0.0,
 					time: 0.25,
 					transition: 'easeOutQuad',
 				});
 			} else if (i < this._currentIndex) {
 				Tweener.addTween(preview, {
-					x: monitor.width * 0.20 - width / 2 + 25 * (i - this._currentIndex),
-					y: (monitor.height - height) / 2,
+					opacity: 255,
+					x: monitor.width * 0.20 - preview.target_width / 2 + 25 * (i - this._currentIndex),
+					y: (monitor.height - preview.target_height) / 2,
+					width: preview.target_width,
+					height: preview.target_height,
 					rotation_angle_y: 60.0,
 					time: 0.25,
 					transition: 'easeOutQuad',
 				});
 			} else if (i > this._currentIndex) {
 				Tweener.addTween(preview, {
-					x: monitor.width * 0.80 - width / 2 + 25 * (i - this._currentIndex),
-					y: (monitor.height - height) / 2,
+					opacity: 255,
+					x: monitor.width * 0.80 - preview.target_width / 2 + 25 * (i - this._currentIndex),
+					y: (monitor.height - preview.target_height) / 2,
+					width: preview.target_width,
+					height: preview.target_height,
 					rotation_angle_y: -60.0,
 					time: 0.25,
 					transition: 'easeOutQuad',
@@ -232,42 +252,57 @@ Switcher.prototype = {
 		this.destroy();
 	},
 
+	_onHideBackgroundCompleted: function() {
+		Main.uiGroup.remove_actor(this.actor);
+
+		// show all window actors
+		let currentWorkspace = global.screen.get_active_workspace();
+		let windows = global.get_window_actors();
+		for (let i in windows) {
+			let metaWin = windows[i].get_meta_window();
+			if (metaWin.get_workspace() == currentWorkspace || metaWin.is_on_all_workspaces()) {
+				windows[i].show();
+			}
+		}
+	},
+
 	_onDestroy: function() {
 		let monitor = Main.layoutManager.primaryMonitor;
 
 		// preview windows
+		let currentWorkspace = global.screen.get_active_workspace();
 		for (let i in this._previews) {
 			let preview = this._previews[i];
-			let [width, height] = preview.get_size();
+			let metaWin = this._windows[i];
+			let compositor = this._windows[i].get_compositor_private();
 
 			Tweener.addTween(preview, {
-				x: (monitor.width - width) / 2,
-				y: (monitor.height - height) / 2,
+				opacity: (metaWin.get_workspace() == currentWorkspace || metaWin.is_on_all_workspaces()) ? 255 : 0,
+				x: compositor.x,
+				y: compositor.y,
+				width: compositor.width,
+				height: compositor.height,
 				rotation_angle_y: 0.0,
 				time: 0.25,
 				transition: 'easeOutQuad',
 			});
 		}
-		// selected preview window
-		let compositor = this._windows[this._currentIndex].get_compositor_private();
-		if (compositor) {
-			Tweener.removeTweens(this._previews[this._currentIndex]);
-			Tweener.addTween(this._previews[this._currentIndex], {
-				x: compositor.x,
-				y: compositor.y,
-				width: compositor.width,
-				height: compositor.height,
-				time: 0.25,
-				transition: 'easeOutQuad',
-			});
-		}
 
-		Tweener.removeTweens(this.actor);
-		Tweener.addTween(this.actor, {
+		// background
+		Tweener.removeTweens(this._background);
+		Tweener.addTween(this._background, {
 			opacity: 0,
 			time: 0.25,
 			transition: 'easeOutQuad',
-			onComplete: Lang.bind(Main.uiGroup, Main.uiGroup.remove_actor, this.actor)
+			onComplete: Lang.bind(this, this._onHideBackgroundCompleted),
+		});
+
+		// window title label
+		Tweener.removeTweens(this._windowTitle);
+		Tweener.addTween(this._windowTitle, {
+			opacity: 0,
+			time: 0.25,
+			transition: 'easeOutQuad',
 		});
 
 		if (this._haveModal) {
