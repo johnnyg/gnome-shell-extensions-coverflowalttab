@@ -151,10 +151,9 @@ Switcher.prototype = {
 				opacity: 0,
 				time: 0.25,
 				transition: 'easeOutQuad',
-				onComplete: Lang.bind(this.actor, this.actor.remove_actor, this._windowTitle),
+				onComplete: Lang.bind(this._background, this._background.remove_actor, this._windowTitle),
 			});
 		}
-
 		this._windowTitle = new St.Label({
 			style_class: 'modal-dialog',
 			text: this._windows[this._currentIndex].get_title(),
@@ -162,7 +161,7 @@ Switcher.prototype = {
 		});
 		this._windowTitle.add_style_class_name('run-dialog');
 		this._windowTitle.add_style_class_name('coverflow-window-title-label');
-		this.actor.add_actor(this._windowTitle);
+		this._background.add_actor(this._windowTitle);
 		this._windowTitle.x = (monitor.width - this._windowTitle.width) / 2;
 		this._windowTitle.y = monitor.height - this._windowTitle.height - 20;
 		Tweener.addTween(this._windowTitle, {
@@ -177,7 +176,6 @@ Switcher.prototype = {
 
 			if (i == this._currentIndex) {
 				preview.raise_top();
-
 				Tweener.addTween(preview, {
 					opacity: 255,
 					x: (monitor.width - preview.target_width) / 2,
@@ -299,14 +297,6 @@ Switcher.prototype = {
 			time: 0.25,
 			transition: 'easeOutQuad',
 			onComplete: Lang.bind(this, this._onHideBackgroundCompleted),
-		});
-
-		// window title label
-		Tweener.removeTweens(this._windowTitle);
-		Tweener.addTween(this._windowTitle, {
-			opacity: 0,
-			time: 0.25,
-			transition: 'easeOutQuad',
 		});
 
 		if (this._haveModal) {
