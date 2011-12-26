@@ -56,6 +56,7 @@ Switcher.prototype = {
 
 		// create previews
 		let currentWorkspace = global.screen.get_active_workspace();
+		this._previewLayer = new St.Group({ visible: true });
 		this._previews = [];
 		for (let i in windows) {
 			let metaWin = windows[i];
@@ -83,10 +84,11 @@ Switcher.prototype = {
 				clone.target_height = height * scale;
 
 				this._previews.push(clone);
-				this.actor.add_actor(clone);
+				this._previewLayer.add_actor(clone);
 			}
 		}
 
+		this.actor.add_actor(this._previewLayer);
 		Main.uiGroup.add_actor(this.actor);
 	},
 
@@ -187,6 +189,7 @@ Switcher.prototype = {
 					transition: 'easeOutQuad',
 				});
 			} else if (i < this._currentIndex) {
+				preview.raise_top();
 				Tweener.addTween(preview, {
 					opacity: 255,
 					x: monitor.width * 0.20 - preview.target_width / 2 + 25 * (i - this._currentIndex),
@@ -198,6 +201,7 @@ Switcher.prototype = {
 					transition: 'easeOutQuad',
 				});
 			} else if (i > this._currentIndex) {
+				preview.lower_bottom();
 				Tweener.addTween(preview, {
 					opacity: 255,
 					x: monitor.width * 0.80 - preview.target_width / 2 + 25 * (i - this._currentIndex),
@@ -311,7 +315,9 @@ Switcher.prototype = {
 		}
 
 		this._windows = null;
+		this._windowTitle = null;
 		this._previews = null;
+		this._previewLayer = null;
 	},
 
 	destroy: function() {
