@@ -82,6 +82,8 @@ Switcher.prototype = {
 
 				clone.target_width = width * scale;
 				clone.target_height = height * scale;
+				clone.target_width_side = width * scale * 0.5;
+				clone.target_height_side = height * scale * 0.7;
 
 				this._previews.push(clone);
 				this._previewLayer.add_actor(clone);
@@ -190,10 +192,10 @@ Switcher.prototype = {
 				preview.raise_top();
 				Tweener.addTween(preview, {
 					opacity: 255,
-					x: monitor.width * 0.20 - preview.target_width / 2 + 25 * (i - this._currentIndex),
-					y: (monitor.height - preview.target_height) / 2,
-					width: preview.target_width,
-					height: preview.target_height,
+					x: monitor.width * 0.2 - preview.target_width_side / 2 + 25 * (i - this._currentIndex),
+					y: (monitor.height - preview.target_height_side) / 2,
+					width: preview.target_width_side,
+					height: preview.target_height_side,
 					rotation_angle_y: 60.0,
 					time: 0.25,
 					transition: 'easeOutQuad',
@@ -202,10 +204,10 @@ Switcher.prototype = {
 				preview.lower_bottom();
 				Tweener.addTween(preview, {
 					opacity: 255,
-					x: monitor.width * 0.80 - preview.target_width / 2 + 25 * (i - this._currentIndex),
-					y: (monitor.height - preview.target_height) / 2,
-					width: preview.target_width,
-					height: preview.target_height,
+					x: monitor.width * 0.8 - preview.target_width_side / 2 + 25 * (i - this._currentIndex),
+					y: (monitor.height - preview.target_height_side) / 2,
+					width: preview.target_width_side,
+					height: preview.target_height_side,
 					rotation_angle_y: -60.0,
 					time: 0.25,
 					transition: 'easeOutQuad',
