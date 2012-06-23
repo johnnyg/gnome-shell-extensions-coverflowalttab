@@ -8,9 +8,9 @@
 const Lang = imports.lang;
 const Main = imports.ui.main;
 
-const CoverflowAltTab = imports.ui.extensionSystem.extensions["CoverflowAltTab@palatis.blogspot.com"];
+const CoverflowAltTab = imports.misc.extensionUtils.getCurrentExtension();
 
-const Switcher = CoverflowAltTab.switcher;
+const Switcher = CoverflowAltTab.imports.switcher;
 
 /**
  * This class handles window events, so we can keep a stack of windows ordered
