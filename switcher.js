@@ -32,10 +32,10 @@ Switcher.prototype = {
 		this._haveModal = false;
 
 		let monitor = Main.layoutManager.primaryMonitor;
-		this.actor = new St.Group({ visible: true });
+		this.actor = new St.Widget({ visible: true });
 
 		// background
-		this._background = new St.Group({
+		this._background = new St.Widget({
 			style_class: 'coverflow-switcher',
 			visible: true,
 			x: 0,
@@ -56,7 +56,7 @@ Switcher.prototype = {
 
 		// create previews
 		let currentWorkspace = global.screen.get_active_workspace();
-		this._previewLayer = new St.Group({ visible: true });
+		this._previewLayer = new St.Widget({ visible: true });
 		this._previews = [];
 		for (let i in windows) {
 			let metaWin = windows[i];
@@ -94,7 +94,7 @@ Switcher.prototype = {
 		Main.uiGroup.add_actor(this.actor);
 	},
 
-	show: function(shellwm, binding, mask, window, backwords) {
+	show: function(display, binding, mask, window) {
 		if (!Main.pushModal(this.actor)) {
 			return false;
 		}
@@ -218,7 +218,7 @@ Switcher.prototype = {
 
 	_keyPressEvent: function(actor, event) {
 		let keysym = event.get_key_symbol();
-		let event_state = Shell.get_event_state(event);
+		let event_state = event.get_state();
 
 		let backwards = event_state & Clutter.ModifierType.SHIFT_MASK;
 		let action = global.display.get_keybinding_action(event.get_key_code(), event_state);

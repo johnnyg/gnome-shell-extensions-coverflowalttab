@@ -23,11 +23,11 @@ function enable() {
 		manager = new Manager.Manager();
 	}
 
-	Meta.keybindings_set_custom_handler('switch_windows', Lang.bind(manager, manager._startWindowSwitcher));
-	Meta.keybindings_set_custom_handler('switch_group', Lang.bind(manager, manager._startWindowSwitcher));
-	Meta.keybindings_set_custom_handler('switch_panels', Lang.bind(manager, manager._startWindowSwitcher));
-	Meta.keybindings_set_custom_handler('switch_windows_backward', Lang.bind(manager, manager._startWindowSwitcher));
-	Meta.keybindings_set_custom_handler('switch_group_backward', Lang.bind(manager, manager._startWindowSwitcher));
+	Meta.keybindings_set_custom_handler('switch-windows', Lang.bind(manager, manager._startWindowSwitcher));
+	Meta.keybindings_set_custom_handler('switch-group', Lang.bind(manager, manager._startWindowSwitcher));
+	Meta.keybindings_set_custom_handler('switch-panels', Lang.bind(manager, manager._startWindowSwitcher));
+	Meta.keybindings_set_custom_handler('switch-windows-backward', Lang.bind(manager, manager._startWindowSwitcher));
+	Meta.keybindings_set_custom_handler('switch-group-backward', Lang.bind(manager, manager._startWindowSwitcher));
 }
 
 function disable() {
@@ -35,9 +35,9 @@ function disable() {
 		manager = null;
 	}
 
-	Meta.keybindings_set_custom_handler('switch_windows', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
-	Meta.keybindings_set_custom_handler('switch_group', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
-	Meta.keybindings_set_custom_handler('switch_panels', Lang.bind(Main.wm, Main.wm._startA11ySwitcher));
-	Meta.keybindings_set_custom_handler('switch_windows_backward', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
-	Meta.keybindings_set_custom_handler('switch_group_backward', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
+	Meta.keybindings_set_custom_handler('switch-windows', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
+	Meta.keybindings_set_custom_handler('switch-group', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
+	Meta.keybindings_set_custom_handler('switch-panels', Lang.bind(Main.wm, Main.wm._startA11ySwitcher));
+	Meta.keybindings_set_custom_handler('switch-windows-backward', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
+	Meta.keybindings_set_custom_handler('switch-group-backward', Lang.bind(Main.wm, Main.wm._startAppSwitcher));
 }

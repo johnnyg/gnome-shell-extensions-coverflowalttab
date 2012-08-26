@@ -32,11 +32,12 @@ Manager.prototype = {
 		win.delete(global.get_current_time());
 	},
 
-	_startWindowSwitcher: function (shellwm, binding, mask, window, backwords) {
+	_startWindowSwitcher: function (display, screen, window, binding) {
 		let windows = [];
 		let actions = {};
-		let currentWorkspace = global.screen.get_active_workspace();
+		let currentWorkspace = screen.get_active_workspace();
 		let currentIndex = 0;
+		let mask = binding.get_mask();
 
 		// construct a list with all windows
 		let windowActors = global.get_window_actors();
@@ -54,14 +55,14 @@ Manager.prototype = {
 		));
 
 		// filter by modes
-		if (binding == 'switch_group') {
+		if (binding.get_name() == 'switch-group') {
 			windows = windows.filter(
 				function(win) {
 					return win.get_workspace() == currentWorkspace && !win.is_skip_taskbar();
 				}
 			);
-		} else if (binding == 'switch_panels') {
-			let focused = global.display.focus_window;
+		} else if (binding.get_name() == 'switch-panels') {
+			let focused = display.focus_window;
 			if (!focused)
 				focused = windows[0];
 
@@ -82,14 +83,14 @@ Manager.prototype = {
 			actions['activate_selected'] = this._activateSelectedWindow;
 			actions['remove_selected'] = this._removeSelectedWindow;
 
-			if (!global.display.focus_window) {
+			if (!display.focus_window) {
 				currentIndex = -1;
 			}
 
 			let switcher = new Switcher.Switcher(windows, actions);
 			switcher._currentIndex = currentIndex;
 
-			if (!switcher.show(shellwm, binding, mask, window, backwords)) {
+			if (!switcher.show(display, binding, mask, window)) {
 				switcher.destroy();
 			}
 		}
