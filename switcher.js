@@ -111,8 +111,11 @@ Switcher.prototype = {
 		for (let i in windows) {
 			windows[i].hide();
 		}
-
-		this._next();
+		
+		if (binding.get_modifiers() & Meta.VirtualModifier.SHIFT_MASK)
+			this._previous();
+		else
+			this._next();
 
 		// There's a race condition; if the user released Alt before
 		// we gotthe grab, then we won't be notified. (See
