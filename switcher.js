@@ -17,6 +17,8 @@ const Main = imports.ui.main;
 const Tweener = imports.ui.tweener;
 
 let WINDOWPREVIEW_SCALE = 0.5;
+let SHOW_INTERVAL = 300;
+let APP_ICON_SIZE = 100;
 
 function Switcher(windows, actions) {
 	this._init(windows, actions);
@@ -26,10 +28,12 @@ Switcher.prototype = {
 	_init: function(windows, actions) {
 		this._windows = windows;
 		this._windowTitle = null;
+		this._windowIcon = null;
 		this._modifierMask = null;
 		this._currentIndex = 0;
 		this._actions = actions;
 		this._haveModal = false;
+		this._previousShowTime = 0;
 
 		let monitor = Main.layoutManager.primaryMonitor;
 		this.actor = new St.Widget({ visible: true });
@@ -111,8 +115,11 @@ Switcher.prototype = {
 		for (let i in windows) {
 			windows[i].hide();
 		}
-
-		this._next();
+		
+		if (binding.get_modifiers() & Meta.VirtualModifier.SHIFT_MASK)
+			this._previous();
+		else
+			this._next();
 
 		// There's a race condition; if the user released Alt before
 		// we gotthe grab, then we won't be notified. (See
@@ -135,13 +142,25 @@ Switcher.prototype = {
 	},
 
 	_next: function() {
-		this._currentIndex = (this._currentIndex + 1) % this._windows.length;
-		this._updateCoverflow();
+		if (this._showIntervalElapsed()) {
+			this._currentIndex = (this._currentIndex + 1) % this._windows.length;
+			this._updateCoverflow();
+		}
 	},
 
 	_previous: function() {
-		this._currentIndex = (this._currentIndex + this._windows.length - 1) % this._windows.length;
-		this._updateCoverflow();
+		if (this._showIntervalElapsed()) {
+			this._currentIndex = (this._currentIndex + this._windows.length - 1) % this._windows.length;
+			this._updateCoverflow();
+		}
+	},
+
+	_showIntervalElapsed: function() {
+		var showTime = new Date().getTime();
+		if ((showTime - this._previousShowTime) < SHOW_INTERVAL)
+			return false;
+		this._previousShowTime = showTime;
+		return true;
 	},
 
 	_updateCoverflow: function() {
@@ -214,6 +233,55 @@ Switcher.prototype = {
 				});
 			}
 		}
+
+		// application icon
+		if (this._windowIcon) {
+			let fadeOutComplete = function(bg,iconBox) {
+				return function() {
+					bg.remove_actor(iconBox);
+				}
+			}(this._background,this._windowIcon);
+			Tweener.addTween(this._windowIcon, {
+				opacity: 0,
+				time: 0.25,
+				transition: 'easeOutQuad',
+				onComplete: fadeOutComplete
+			});
+		}
+
+		let tracker = Shell.WindowTracker.get_default();
+		let app = tracker.get_window_app(this._windows[this._currentIndex]);
+		let icon = app.create_icon_texture(APP_ICON_SIZE);
+		if (!icon) {
+			icon = new St.Icon({
+				icon_name: 'applications-other',
+				icon_type: St.IconType.FULLCOLOR,
+				icon_size: APP_ICON_SIZE
+			});
+		}
+		icon.width = APP_ICON_SIZE;
+		icon.height = APP_ICON_SIZE;
+
+		this._windowIcon = new St.Bin({
+			style_class: 'coverflow-app-icon-box',
+			opacity: 0
+		});
+		this._windowIcon.add_actor(icon);
+		this._previewLayer.add_actor(this._windowIcon);
+		this._windowIcon.x = (monitor.width - APP_ICON_SIZE) / 2;
+		this._windowIcon.y = (monitor.height - APP_ICON_SIZE) / 2;
+		let fadeInComplete = function(iconBox,preview) {
+			return function() {
+				iconBox.raise(preview);
+			}
+		}(this._windowIcon,this._previews[this._currentIndex]);
+
+		Tweener.addTween(this._windowIcon, {
+			opacity: 255,
+			time: 0.25,
+			transition: 'easeOutQuad',
+			onComplete: fadeInComplete
+		});
 	},
 
 	_keyPressEvent: function(actor, event) {
@@ -232,8 +300,8 @@ Switcher.prototype = {
 				   action == Meta.KeyBindingAction.SWITCH_WINDOWS ||
 				   action == Meta.KeyBindingAction.SWITCH_PANELS) {
 			backwards ? this._previous() : this._next();
-		} else if (action == Meta.KeyBindingAction.SWITCH_GROUP_BACKWORD ||
-				   action == Meta.KeyBindingAction.SWITCH_WINDOWS_BACKWORD) {
+		} else if (action == Meta.KeyBindingAction.SWITCH_GROUP_BACKWARD ||
+				   action == Meta.KeyBindingAction.SWITCH_WINDOWS_BACKWARD) {
 			this._previous();
 		}
 
@@ -248,6 +316,7 @@ Switcher.prototype = {
 			this._activateSelected();
 		}
 
+		this._previousShowTime = 0;
 		return true;
 	},
 
@@ -291,6 +360,14 @@ Switcher.prototype = {
 				transition: 'easeOutQuad',
 			});
 		}
+
+		// applicaton icon
+		Tweener.removeTweens(this._windowIcon);
+		Tweener.addTween(this._windowIcon, {
+			opacity: 0,
+			time: 0.25,
+			transition: 'easeOutQuad'
+		});
 
 		// background
 		Tweener.removeTweens(this._background);
